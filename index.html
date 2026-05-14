@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta charset="UTF-8">
 
 <title>Salchis App PRO</title>
 
@@ -459,7 +461,7 @@ app.innerHTML=`
 
 <input id="nC" placeholder="Nombre"><br>
 <input id="iconoClub" placeholder="⚽" maxlength="2"><br>
-<input type="file" id="escudoClub"accept="image/*">
+<input type="file" id="imgClub" accept="image/*">
 
 Nivel: 
 <input type="number" id="lvlInput" min="1" max="100" value="50" style="width:60px;">
@@ -1013,7 +1015,7 @@ render();
 
 function guardarClub(){
 
-let archivo = document.getElementById("escudoClub").files[0];
+let archivo = document.getElementById("imgClub")?.files[0];
 
 if(archivo){
 
@@ -1055,8 +1057,6 @@ id: Date.now(),
 nombre: document.getElementById("nC").value || "Club",
 nivel: +document.getElementById("lvlInput").value || 50,
 icono: document.getElementById("iconoClub").value || "⚽",
-
-escudo:null,
 
 pj:0,
 g:0,
@@ -3003,13 +3003,13 @@ return c
 <div style="
 display:flex;
 align-items:center;
-gap:6px;
+gap:8px;
 ">
 ${
 c.escudo
 ? `<img src="${c.escudo}" style="
-width:22px;
-height:22px;
+width:24px;
+height:24px;
 border-radius:50%;
 object-fit:cover;
 ">`
