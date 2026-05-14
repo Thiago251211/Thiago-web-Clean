@@ -674,7 +674,7 @@ app.innerHTML = `
 
 ${Object.entries(vs).map(([id,data])=>`
 <div class="card">
-⚔️ vs ${clubNombre(id)}
+⚔️ vs ${clubNombreEscudo(id)}
 <br>
 ✅ Ganados: ${data.g}
 <br>
@@ -775,7 +775,7 @@ return `
 ${tabla.map(([id,t],i)=>`
 <tr style="border-bottom:1px solid #222;">
 <td>${i+1}</td>
-<td>${clubNombre(id)}</td>
+<td style="min-width:180px;">${clubNombreEscudo(id)}</td>
 <td>${t.pj}</td>
 <td>${t.g}</td>
 <td>${t.e}</td>
@@ -966,7 +966,7 @@ html += `
 ${orden.map((e,i)=>`
 <tr>
 <td>${i+1}</td>
-<td>${clubNombre(e[0])}</td>
+<td>${clubNombreEscudo(e[0])}</td>
 <td>${e[1].pts}</td>
 <td>${e[1].dg}</td>
 </tr>
@@ -1015,30 +1015,24 @@ render();
 
 function guardarClub(){
 
-let inputImg = document.getElementById("imgClub");
+let nombre = document.getElementById("nC").value || "Club";
 
-let archivo = null;
+let nivel = +document.getElementById("lvlInput").value || 50;
 
-if(inputImg && inputImg.files.length > 0){
-archivo = inputImg.files[0];
-}
+let icono = document.getElementById("iconoClub").value || "⚽";
 
-if(archivo){
+let input = document.getElementById("imgClub");
 
-let lector = new FileReader();
 
-lector.onload = function(e){
+// SIN IMAGEN
+if(!input || !input.files || !input.files[0]){
 
 clubes.push({
 id: Date.now(),
-nombre: document.getElementById("nC").value || "Club",
-nivel: +document.getElementById("lvlInput").value || 50,
-icono: document.getElementById("iconoClub").value || "⚽",
+nombre,
+nivel,
+icono,
 
-// 🖼️ ESCUDO
-escudo: e.target.result,
-
-// 🔥 STATS FIFA
 pj:0,
 g:0,
 e:0,
@@ -1051,33 +1045,44 @@ fifa:1000
 
 guardar();
 ir("clubes");
+
+return;
+}
+
+
+// CON IMAGEN
+let lector = new FileReader();
+
+lector.onload = function(evento){
+
+clubes.push({
+id: Date.now(),
+nombre,
+nivel,
+icono,
+
+// 🖼️ ESCUDO
+escudo: evento.target.result,
+
+pj:0,
+g:0,
+e:0,
+p:0,
+gf:0,
+gc:0,
+titulos:0,
+fifa:1000
+});
+
+guardar();
+
+ir("clubes");
+
+render();
 
 };
 
-lector.readAsDataURL(archivo);
-
-}else{
-
-clubes.push({
-id: Date.now(),
-nombre: document.getElementById("nC").value || "Club",
-nivel: +document.getElementById("lvlInput").value || 50,
-icono: document.getElementById("iconoClub").value || "⚽",
-
-pj:0,
-g:0,
-e:0,
-p:0,
-gf:0,
-gc:0,
-titulos:0,
-fifa:1000
-});
-
-guardar();
-ir("clubes");
-
-}
+lector.readAsDataURL(input.files[0]);
 
 }
 
@@ -1483,7 +1488,7 @@ ${t.clubes
 .filter(id => !t.grupos.some(g => g.includes(id)))
 .map(id=>`
 <div style="margin:5px; padding:5px; background:#222;">
-${clubNombre(id)}
+${clubNombreEscudo(id)}
 <button onclick="seleccionarClub(${id})">➕</button>
 </div>
 `).join("")}
@@ -2011,9 +2016,9 @@ text-align:center;
 font-size:28px;
 line-height:1.4;
 ">
-${clubNombre(id1)} 
+${clubNombreEscudo(id1)} 
 <span style="color:#ff9800;">vs</span> 
-${clubNombre(id2)}
+${clubNombreEscudo(id2)}
 </h2>
 
 <div style="
@@ -2733,12 +2738,12 @@ position:relative;
 ">
 
 <div style="display:flex; justify-content:space-between;">
-<span>${clubNombre(p.c1)}</span>
+<span>${clubNombreEscudo(p.c1)}</span>
 <span>${p.g1 ?? "-"}</span>
 </div>
 
 <div style="display:flex; justify-content:space-between;">
-<span>${clubNombre(p.c2)}</span>
+<span>${clubNombreEscudo(p.c2)}</span>
 <span>${p.g2 ?? "-"}</span>
 </div>
 
@@ -2834,12 +2839,12 @@ position:relative;
 ">
 
 <div style="display:flex;justify-content:space-between;">
-<span>${clubNombre(p.c1)}</span>
+<span>${clubNombreEscudo(p.c1)}</span>
 <span>${p.g1 ?? "-"}</span>
 </div>
 
 <div style="display:flex;justify-content:space-between;">
-<span>${clubNombre(p.c2)}</span>
+<span>${clubNombreEscudo(p.c2)}</span>
 <span>${p.g2 ?? "-"}</span>
 </div>
 
@@ -3114,10 +3119,15 @@ margin-bottom:20px;
 text-align:center;
 font-size:28px;
 line-height:1.4;
+display:flex;
+justify-content:center;
+align-items:center;
+gap:15px;
+flex-wrap:wrap;
 ">
-${clubNombre(id1)} 
+${clubNombreEscudo(id1)} 
 <span style="color:#ff9800;">vs</span> 
-${clubNombre(id2)}
+${clubNombreEscudo(id2)}
 </h2>
 
 <div style="
