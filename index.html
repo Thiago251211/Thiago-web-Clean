@@ -1,0 +1,3781 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<title>Salchis App PRO</title>
+
+<style>
+body{background:#121212;color:white;font-family:sans-serif;margin:0;}
+header{background:#1f1f1f;padding:10px;}
+button{background:#ff9800;border:none;padding:6px 10px;margin:3px;border-radius:6px;}
+.card{background:#1f1f1f;margin:10px;padding:10px;border-radius:10px;}
+.match{display:flex;justify-content:space-between;background:#2a2a2a;padding:8px;margin:5px;border-radius:8px;}
+.tabs button{background:#333;}
+#panel{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+pointer-events:none;
+z-index:9999;
+}
+
+/* 🔥 ANIMACIONES PRO */
+
+.card{
+transition:
+transform .5s ease,
+background .3s ease,
+box-shadow .3s ease;
+}
+
+.card{
+transform-origin: center;
+overflow: hidden;
+}
+
+.card:hover{
+transform: scale(1.02);
+box-shadow: 0 0 10px rgba(0,0,0,0.6);
+}
+
+@media (hover: none){
+.card:hover{
+transform:none;
+box-shadow:none;
+}
+}
+
+.match{
+transition: all 0.2s ease;
+}
+
+.match:hover{
+background:#333;
+transform: scale(1.03);
+}
+
+button{
+transition: all 0.2s ease;
+}
+
+button:hover{
+transform: scale(1.05);
+background:#ffa726;
+}
+
+#app{
+position:relative;
+z-index:1;
+}
+
+.rankingCard{
+transition: transform .8s ease;
+}
+
+.rankingCard:hover{
+transform:scale(1.02);
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+<button onclick="ir('torneos')">🏆 Torneos</button>
+<button onclick="ir('clubes')">⚽ Clubes</button>
+<button onclick="ir('rankingGlobal')">📶 Ranking</button>
+<button onclick="ir('vitrina')">🏆 Vitrina</button>
+<button onclick="ir('jugadores')">🧍 Jugadores</button>
+</header>
+
+<div id="app"></div>
+<div id="panel"></div>
+
+<script>
+
+// ===== DATA =====
+let torneos=JSON.parse(localStorage.getItem("torneos"))||[];
+let clubes=JSON.parse(localStorage.getItem("clubes"))||[];
+let jugadores = JSON.parse(localStorage.getItem("jugadores")) || [];
+let jugadorEditando = 0;
+
+
+clubes.forEach(c=>{
+if(c.pj===undefined){
+c.pj=0;
+c.g=0;
+c.e=0;
+c.p=0;
+c.gf=0;
+c.gc=0;
+c.titulos=0;
+}
+
+if(c.fifa === undefined){
+c.fifa = 1000;
+}
+});
+
+// ===== ESTADO =====
+let pantalla="torneos";
+let torneoActual=0;
+let tab="config";
+let partidoEditando=null;
+let clubEditando=0;
+let panel = document.getElementById("panel");
+let subTab = "grupos";
+
+// ===== UTIL =====
+function guardar(){
+localStorage.setItem("torneos",JSON.stringify(torneos));
+localStorage.setItem("clubes",JSON.stringify(clubes));
+localStorage.setItem("jugadores", JSON.stringify(jugadores));
+}
+
+function aviso(txt){
+  const p = document.getElementById("panel");
+  p.style.display = "flex";
+  p.style.pointerEvents = "auto";
+  p.style.alignItems = "center";
+  p.style.justifyContent = "center";
+  p.style.background = "rgba(0,0,0,.7)";
+  p.style.zIndex = "9999";
+  p.innerHTML = `
+    <div style="
+      background:#111;
+      padding:20px;
+      border-radius:10px;
+      text-align:center;
+    ">
+      <p>${txt}</p>
+      <button onclick="cerrarPanel()">OK</button>
+    </div>
+  `;
+}
+
+
+function ir(p){pantalla=p;render();}
+
+// ===== RENDER =====
+function render(){
+let app=document.getElementById("app");
+
+if(pantalla=="torneos"){
+app.innerHTML=`
+<button onclick="pantalla='crearTorneo';render()">➕ Crear torneo</button>
+${torneos.map((t,i)=>`
+<div class="card" style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+flex-wrap:wrap;
+gap:10px;
+">
+
+<div style="
+font-size:18px;
+font-weight:bold;
+">
+${t.icono||"🏆"} ${t.nombre}
+</div>
+
+<div style="
+display:flex;
+gap:5px;
+">
+
+<button onclick="abrirTorneo(${i})">
+📂
+</button>
+
+<button onclick="eliminarTorneo(${i})" style="
+background:#d32f2f;
+color:white;
+">
+🗑️
+</button>
+
+</div>
+
+</div>
+`).join("")}`;
+}
+
+if(pantalla=="rankingGlobal"){
+
+let r = rankingConMovimiento();
+
+let anterior = JSON.parse(localStorage.getItem("rankingAnim")) || [];
+
+// ordenar visualmente por ranking viejo
+let visual = [...r].sort((a,b)=>{
+
+let pa = anterior.find(x=>x.id==a.id)?.pos ?? 999;
+let pb = anterior.find(x=>x.id==b.id)?.pos ?? 999;
+
+return pa - pb;
+
+});
+
+app.innerHTML = `
+
+<h1 style="
+text-align:center;
+margin-top:10px;
+">
+🌍 Ranking Mundial FIFA
+</h1>
+
+<div style="
+padding:10px;
+">
+
+${r.map((c,i)=>{
+
+let oldPos = anterior.find(x=>x.id==c.id)?.pos ?? i;
+
+let offset = (oldPos - i) * 120;
+
+let medalla = "🏅";
+
+let borde =
+i==0 ? "gold" :
+i==1 ? "silver" :
+i==2 ? "#cd7f32" :
+"#333";
+
+if(i==0) medalla = "🥇";
+if(i==1) medalla = "🥈";
+if(i==2) medalla = "🥉";
+
+let movHTML = "";
+
+if(c.mov > 0){
+
+movHTML = `
+<div style="
+color:#4caf50;
+font-weight:bold;
+font-size:18px;
+">
+🔼 +${c.mov}
+</div>
+`;
+
+}
+else if(c.mov < 0){
+
+movHTML = `
+<div style="
+color:red;
+font-weight:bold;
+font-size:18px;
+">
+🔽 ${Math.abs(c.mov)}
+</div>
+`;
+
+}
+else{
+
+movHTML = `
+<div style="
+color:#999;
+">
+➖ 0
+</div>
+`;
+
+}
+
+return `
+
+<div class="card rankingCard"
+style="
+transform:translateY(${offset}px);
+border-left:6px solid ${borde};
+position:relative;
+overflow:hidden;
+"
+>
+
+<div style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+">
+
+<div>
+
+<div style="
+font-size:24px;
+font-weight:bold;
+">
+${medalla} ${c.nombre}
+</div>
+
+<div style="
+margin-top:5px;
+color:#aaa;
+">
+📶 ${Math.floor(c.fifa)} pts
+</div>
+
+<div style="
+margin-top:5px;
+color:gold;
+">
+🏆 ${(c.historial || []).length} títulos
+</div>
+
+</div>
+
+<div>
+${movHTML}
+</div>
+
+</div>
+
+</div>
+`;
+
+}).join("")}
+
+</div>
+
+</div>
+
+`;
+
+setTimeout(()=>{
+
+document.querySelectorAll(".rankingCard")
+.forEach(card=>{
+
+card.style.transform = "translateY(0px)";
+
+});
+
+},50);
+
+localStorage.setItem("rankingAnim", JSON.stringify(
+r.map((c,i)=>({
+id:c.id,
+pos:i
+}))
+));
+}
+
+if(pantalla=="crearTorneo"){
+app.innerHTML=`
+<div class="card">
+<h3>Crear torneo</h3>
+<input id="nT" placeholder="Nombre"><br>
+<input id="iT" placeholder="Icono"><br>
+
+Formato:
+<select id="fT">
+<option>Liga</option>
+<option>Grupos</option>
+<option>Eliminatoria</option>
+<option>Mundial</option>
+</select><br>
+
+Cruces <input id="cruces" value="1"><br>
+
+<button onclick="guardarTorneo()">Crear</button>
+</div>`;
+}
+
+
+if(pantalla=="clubes"){
+app.innerHTML=`
+<button onclick="crearClub()">➕ Crear club</button>
+
+${clubes.map((c,i)=>`
+
+<div class="card" style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+flex-wrap:wrap;
+gap:10px;
+">
+
+<div>
+<div style="
+font-size:20px;
+font-weight:bold;
+">
+${c.icono || "⚽"} ${c.nombre}
+</div>
+
+<div style="
+color:#aaa;
+margin-top:4px;
+">
+⭐ Nivel ${Math.round(c.nivel)}
+</div>
+</div>
+
+<div style="
+display:flex;
+gap:6px;
+flex-wrap:wrap;
+justify-content:flex-end;
+">
+
+<button onclick="editarClub(${i})">
+⚙️
+</button>
+
+<button onclick="borrarClub(${i})">
+🗑️
+</button>
+
+<button onclick="verVs(${i})">
+🆚
+</button>
+
+<button onclick="verPlantilla(${i})">
+📋
+</button>
+
+</div>
+
+</div>
+
+`).join("")}`;
+}
+
+if(pantalla=="crearClub"){
+app.innerHTML=`
+<div class="card">
+
+<input id="nC" placeholder="Nombre"><br>
+<input id="iconoClub" placeholder="⚽" maxlength="2"><br>
+<input type="file" id="escudoClub"accept="image/*">
+
+Nivel: 
+<input type="number" id="lvlInput" min="1" max="100" value="50" style="width:60px;">
+<span id="lvlNum">50</span>
+
+<br>
+
+<input type="range" id="lvl" min="1" max="100" value="50">
+
+<br><br>
+
+Color:
+<input type="color" id="colorClub" value="#ff9800"><br><br>
+
+Símbolo:
+<input id="simboloClub" maxlength="2" placeholder="⚽"><br><br>
+
+<button onclick="guardarClub()">Guardar</button>
+
+</div>
+`;
+// sincronizar slider + input
+let slider = document.getElementById("lvl");
+let input = document.getElementById("lvlInput");
+let label = document.getElementById("lvlNum");
+
+slider.oninput = function(){
+input.value = this.value;
+label.innerText = this.value;
+};
+
+input.oninput = function(){
+let v = parseInt(this.value);
+if(isNaN(v)) v = 1;
+
+v = Math.max(1, Math.min(100, v));
+
+this.value = v;
+slider.value = v;
+label.innerText = v;
+};
+}
+
+if(pantalla=="jugadores"){
+app.innerHTML=`
+<button onclick="crearJugador()">➕ Crear jugador</button>
+
+${jugadores.map((j,i)=>`
+<div class="card">
+${j.nombre} (${j.pos})
+<br>
+Club: ${j.club==-1 ? "Sin club" : clubNombre(j.club)}
+<br>
+<button onclick="editarJugador(${i})">⚙️</button>
+</div>
+`).join("")}
+`;
+}
+
+if(pantalla=="crearJugador"){
+app.innerHTML=`
+<div class="card">
+
+<input id="nJ" placeholder="Nombre"><br><br>
+
+Posición:
+<select id="posJ">
+<option>POR</option>
+<option>DEF</option>
+<option>MED</option>
+<option>DEL</option>
+</select><br><br>
+
+Jugador de:
+<select id="clubJ">
+<option value="-1">Sin club</option>
+${clubes.map((c,i)=>`
+<option value="${i}">${c.nombre}</option>
+`).join("")}
+</select><br><br>
+
+<button onclick="guardarJugador()">Guardar</button>
+
+</div>
+`;
+}
+
+if(pantalla=="editarJugador"){
+
+let j = jugadores[jugadorEditando];
+
+app.innerHTML=`
+<div class="card">
+
+<input id="nJ" value="${j.nombre}"><br><br>
+
+Posición:
+<select id="posJ">
+<option ${j.pos=="POR"?"selected":""}>POR</option>
+<option ${j.pos=="DEF"?"selected":""}>DEF</option>
+<option ${j.pos=="MED"?"selected":""}>MED</option>
+<option ${j.pos=="DEL"?"selected":""}>DEL</option>
+</select><br><br>
+
+Transferir a:
+<select id="clubJ">
+<option value="-1">Sin club</option>
+${clubes.map((c,i)=>`
+<option value="${i}" ${j.club==i?"selected":""}>${c.nombre}</option>
+`).join("")}
+</select><br><br>
+
+<button onclick="guardarEditJugador()">Guardar</button>
+
+</div>
+`;
+}
+
+if(pantalla=="editarClub"){
+let c=clubes[clubEditando];
+
+app.innerHTML=`
+<div class="card">
+
+<input id="nC" value="${c.nombre}"><br><br>
+
+<input id="iconoClub" value="${c.icono || "⚽"}"><br><br>
+
+Nivel:
+<input type="number" id="lvlInput" min="1" max="100" value="${c.nivel}" style="width:60px;">
+<span id="lvlNum">${c.nivel}</span>
+
+<br><br>
+
+<input type="range" id="lvl" min="1" max="100" value="${c.nivel}">
+
+<br><br>
+
+<button onclick="guardarEditClub()">Guardar</button>
+
+</div>
+`;
+
+// elementos
+let slider = document.getElementById("lvl");
+let input = document.getElementById("lvlInput");
+let label = document.getElementById("lvlNum");
+
+// sincronizar slider → input
+slider.oninput = function(){
+input.value = this.value;
+label.innerText = this.value;
+};
+
+// sincronizar input → slider
+input.oninput = function(){
+let v = parseInt(this.value);
+
+if(isNaN(v)) v = 1;
+
+v = Math.max(1, Math.min(100, v));
+
+this.value = v;
+slider.value = v;
+label.innerText = v;
+};
+}
+
+if(pantalla=="torneo"){
+let t=torneos[torneoActual];
+
+app.innerHTML=`
+<div class="card">
+<h2>${t.icono} ${t.nombre}</h2>
+
+<div class="tabs">
+<button onclick="tab='config';render()">⚙️</button>
+<button onclick="tab='clubes';render()">👥</button>
+<button onclick="tab='tabla';render()">📊</button>
+<button onclick="tab='partidos';render()">⚽</button>
+</div>
+
+${renderTab(t)}
+</div>`;
+}
+
+if(pantalla=="vitrina"){
+
+app.innerHTML = `
+<h2 style="text-align:center;">🏆 Vitrina</h2>
+
+${clubes.map((c,i)=>`
+<div class="card" onclick="verVitrina(${i})">
+${c.icono || "⚽"} ${c.nombre}
+<br>
+Títulos: ${c.titulos || 0}
+</div>
+`).join("")}
+`;
+}
+if(pantalla=="vsClub"){
+
+let c = clubes[clubEditando];
+let vs = c.vs || {};
+
+app.innerHTML = `
+<h2 style="text-align:center;">🆚 ${c.nombre}</h2>
+
+<button onclick="ir('clubes')">⬅ Volver</button>
+
+${Object.entries(vs).map(([id,data])=>`
+<div class="card">
+⚔️ vs ${clubNombre(id)}
+<br>
+✅ Ganados: ${data.g}
+<br>
+🤝 Empates: ${data.e}
+<br>
+❌ Perdidos: ${data.p}
+</div>
+`).join("")}
+`;
+}
+}
+
+// ===== TABS =====
+function renderTab(t){
+
+if(!t.jornadas) t.jornadas = [];
+if(!t.clubes) t.clubes = [];
+if(t.jornadaActual === undefined) t.jornadaActual = 0;
+
+if(tab=="config"){
+return `
+<input id="nom" value="${t.nombre}">
+<input id="ico" value="${t.icono}">
+<br>
+Cruces <input id="cr" value="${t.cruces||1}">
+<br>
+Pts victoria <input id="pv" value="${t.pv||3}">
+Pts empate <input id="pe" value="${t.pe||1}">
+Pts derrota <input id="pp" value="${t.pp||0}">
+
+${t.formato=="Mundial" ? `
+
+<br><br>
+
+<button onclick="configurarMundial()">
+🌍 Configurar Mundial
+</button>
+
+` : ""}
+
+${(t.formato=="Liga" || t.formato=="Mundial") ? `
+
+<br><br>
+
+<button onclick="configurarClasificacion()">
+📊 Clasificación
+</button>
+
+` : ""}
+
+${t.formato=="Eliminatoria" ? `
+
+<br><br>
+
+<button onclick="configurarEliminatoria()">
+🏆 Configurar Eliminatoria
+</button>
+
+` : ""}
+
+<br><br>
+<button onclick="guardarConfig()">Guardar</button>`;
+}
+
+if(tab=="clubes"){
+return clubes.map((c,i)=>{
+let chk=t.clubes.includes(i)?"checked":"";
+return `<div><input type="checkbox" value="${i}" ${chk}> ${c.nombre}</div>`;
+}).join("") + `<button onclick="guardarClubes()">Guardar</button>`;
+}
+
+if(tab=="tabla"){
+
+if(t.formato=="Eliminatoria"){
+return renderBracketTabla(t);
+}
+
+let tabla=generarTabla();
+
+return `
+<div style="background:#111; padding:15px; border-radius:10px;">
+
+<h3 style="text-align:center;">Tabla</h3>
+
+<table style="width:100%; text-align:center; border-collapse:collapse;">
+
+<tr style="border-bottom:1px solid #333;">
+<th>#</th>
+<th>Club</th>
+<th>PJ</th>
+<th>G</th>
+<th>E</th>
+<th>P</th>
+<th>DG</th>
+<th>PTS</th>
+</tr>
+
+${tabla.map(([id,t],i)=>`
+<tr style="border-bottom:1px solid #222;">
+<td>${i+1}</td>
+<td>${clubNombre(id)}</td>
+<td>${t.pj}</td>
+<td>${t.g}</td>
+<td>${t.e}</td>
+<td>${t.p}</td>
+<td>${t.dg>=0?"+":""}${t.dg}</td>
+<td>${t.pts}</td>
+</tr>
+`).join("")}
+
+</table>
+
+</div>
+`;
+}
+
+if(tab=="partidos"){
+
+// 🔥 MODO GRUPOS + ELIMINATORIA
+if(t.formato == "Eliminatoria" && t.grupos && t.grupos.length > 0){
+
+return `
+
+<div style="display:flex;justify-content:center;gap:10px;margin-bottom:10px;">
+
+<button onclick="subTab='grupos';render()">
+🚻  Grupos
+</button>
+
+<button onclick="subTab='elim';render()">
+🏆 Eliminatoria
+</button>
+
+</div>
+
+${subTab == "grupos" 
+  ? renderGruposTabla(t) 
+  : renderEliminatoria(t)
+}
+
+`;
+}
+
+if(t.formato=="Eliminatoria" && (!t.eliminatorias || t.eliminatorias.length==0)){
+return `
+<button onclick="generarEliminatoria()">⚔️ Generar eliminatoria</button>
+`;
+}
+
+if(t.formato=="Mundial" && t.grupos && t.jornadas.length==0){
+return `
+<button onclick="generarPartidosGrupos()">⚽ Generar partidos de grupos</button>
+`;
+}
+
+if(t.formato=="Eliminatoria"){
+return renderEliminatoria(t);
+}
+
+let jornada=t.jornadas[t.jornadaActual] || [];
+
+return `
+
+<h3 style="
+text-align:center;
+background:#1a1a1a;
+padding:10px;
+border-radius:10px;
+margin-bottom:10px;
+">
+📅 Jornada ${(t.jornadaActual ?? 0)+1} / ${t.jornadas.length}
+</h3>
+
+${mostrarCampeon()}
+
+<div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
+
+<button onclick="torneos[torneoActual].jornadaActual = Math.max(0, torneos[torneoActual].jornadaActual - 1); render()">
+◀
+</button>
+
+<button onclick="simularJornada()" style="background:#4caf50;">
+🎲 Simular
+</button>
+
+<button onclick="if(torneos[torneoActual].jornadaActual < torneos[torneoActual].jornadas.length - 1){ torneos[torneoActual].jornadaActual++; render(); }">
+▶
+</button>
+
+</div>
+${jornada.map((p,i)=>{
+let id1 = p.c1 ?? p.a;
+let id2 = p.c2 ?? p.b;
+
+let A = clubes[id1];
+let B = clubes[id2];
+
+if(!A || !B) return "";
+let res=p.g1!=null?`${p.g1}-${p.g2}`:"-";
+
+return `<div class="match" onclick="abrirPanel(${i})" style="
+background:#1e1e1e;
+border:1px solid #333;
+border-radius:12px;
+padding:12px;
+margin:8px 0;
+display:flex;
+justify-content:space-between;
+">
+
+<span>${A.nombre}</span>
+<span style="font-weight:bold;">${res}</span>
+<span>${B.nombre}</span>
+
+</div>`;
+}).join("")}
+
+${t.formato != "Mundial" ? `
+<button onclick="generarJornadas()">📅 Generar jornadas</button>
+
+<button onclick="nuevaTemporada()" style="background:#2196f3;">
+🔄 Nueva temporada
+</button>
+` : ""}
+
+`;
+}
+}
+
+function renderGruposTabla(t){
+
+let html = "";
+
+t.grupos.forEach((grupo, gi)=>{
+
+let tabla = {};
+
+// init
+grupo.forEach(id=>{
+tabla[id]={
+pts:0,pj:0,g:0,e:0,p:0,gf:0,gc:0,dg:0
+};
+});
+
+// calcular
+t.jornadas.forEach(j=>{
+j.forEach(p=>{
+
+let id1 = p.c1 ?? p.a;
+let id2 = p.c2 ?? p.b;
+
+if(!grupo.includes(id1) || !grupo.includes(id2)) return;
+if(p.g1 == null) return;
+
+let A = tabla[id1];
+let B = tabla[id2];
+
+A.pj++; B.pj++;
+
+A.gf+=p.g1; A.gc+=p.g2;
+B.gf+=p.g2; B.gc+=p.g1;
+
+if(p.g1>p.g2){A.pts+=3;A.g++;B.p++;}
+else if(p.g2>p.g1){B.pts+=3;B.g++;A.p++;}
+else{A.pts+=1;B.pts+=1;A.e++;B.e++;}
+
+});
+});
+
+// dg
+Object.values(tabla).forEach(t=>t.dg = t.gf - t.gc);
+
+// ordenar
+let orden = Object.entries(tabla).sort((a,b)=>{
+if(b[1].pts!=a[1].pts) return b[1].pts-a[1].pts;
+return b[1].dg-a[1].dg;
+});
+
+// render
+html += `
+<div class="card">
+<h3>Grupo ${gi+1}</h3>
+
+<table style="width:100%;text-align:center;">
+<tr>
+<th>#</th><th>Club</th><th>PTS</th><th>DG</th>
+</tr>
+
+${orden.map((e,i)=>`
+<tr>
+<td>${i+1}</td>
+<td>${clubNombre(e[0])}</td>
+<td>${e[1].pts}</td>
+<td>${e[1].dg}</td>
+</tr>
+`).join("")}
+
+</table>
+</div>
+`;
+
+});
+
+return html;
+}
+
+// ===== CAMPEÓN =====
+function obtenerCampeon(){
+let tabla = generarTabla();
+if(tabla.length == 0) return null;
+
+let t = torneos[torneoActual];
+
+let completo = true;
+
+t.jornadas.forEach(j=>{
+j.forEach(p=>{
+if(p.g1 == null) completo = false;
+});
+});
+
+if(!completo) return null;
+
+return clubNombre(tabla[0][0]);
+}
+
+// ===== CLUBES =====
+function crearClub(){
+pantalla="crearClub";
+render();
+}
+
+function editarClub(i){
+clubEditando=i;
+pantalla="editarClub";
+render();
+}
+
+function guardarClub(){
+
+let archivo = document.getElementById("escudoClub").files[0];
+
+if(archivo){
+
+let lector = new FileReader();
+
+lector.onload = function(e){
+
+clubes.push({
+id: Date.now(),
+nombre: document.getElementById("nC").value || "Club",
+nivel: +document.getElementById("lvlInput").value || 50,
+icono: document.getElementById("iconoClub").value || "⚽",
+
+// 🖼️ ESCUDO
+escudo: e.target.result,
+
+// 🔥 STATS FIFA
+pj:0,
+g:0,
+e:0,
+p:0,
+gf:0,
+gc:0,
+titulos:0,
+fifa:1000
+});
+
+guardar();
+ir("clubes");
+
+};
+
+lector.readAsDataURL(archivo);
+
+}else{
+
+clubes.push({
+id: Date.now(),
+nombre: document.getElementById("nC").value || "Club",
+nivel: +document.getElementById("lvlInput").value || 50,
+icono: document.getElementById("iconoClub").value || "⚽",
+
+escudo:null,
+
+pj:0,
+g:0,
+e:0,
+p:0,
+gf:0,
+gc:0,
+titulos:0,
+fifa:1000
+});
+
+guardar();
+ir("clubes");
+
+}
+
+}
+
+function guardarEditClub(){
+
+let c = clubes[clubEditando];
+
+c.nombre = document.getElementById("nC").value || "Club";
+c.icono = document.getElementById("iconoClub").value || "⚽";
+c.nivel = +document.getElementById("lvl").value || 50;
+
+guardar();
+ir("clubes");
+}
+
+// ===== TORNEOS =====
+function guardarTorneo(){
+torneos.push({
+nombre: document.getElementById("nT").value || "Torneo",
+icono: document.getElementById("iT").value || "🏆",
+formato: document.getElementById("fT").value || "Liga",
+clubes: [],
+jornadas: [],
+jornadaActual: 0,
+eliminatorias: [],
+rondaActual: 0,
+cruces: +document.getElementById("cruces").value || 1,
+pv:3,
+pe:1,
+pp:0
+});
+
+let t = torneos[torneos.length - 1];
+
+// 👇 NUEVO (seguro)
+t.grupos = [];
+t.modoGrupos = "auto";
+
+guardar();
+ir("torneos");
+}
+
+function abrirTorneo(i){torneoActual=i;pantalla="torneo";render();}
+
+function eliminarTorneo(i){
+
+panel.style.display = "flex";
+panel.style.pointerEvents = "auto";
+
+panel.innerHTML = `
+<div style="
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.8);
+display:flex;
+justify-content:center;
+align-items:center;
+">
+
+<div style="
+background:#111;
+padding:20px;
+border-radius:10px;
+text-align:center;
+">
+
+<h2>🗑️ Eliminar torneo</h2>
+
+<p>
+Esto NO borrará títulos ni ranking FIFA.
+</p>
+
+<br>
+
+<button onclick="confirmarEliminarTorneo(${i})"
+style="
+background:#d32f2f;
+color:white;
+">
+Eliminar
+</button>
+
+<button onclick="cerrarPanel()">
+Cancelar
+</button>
+
+</div>
+</div>
+`;
+}
+
+function confirmarEliminarTorneo(i){
+
+let torneo = torneos[i];
+
+// borrar historial relacionado
+clubes.forEach(c=>{
+
+if(!c.historial) return;
+
+c.historial = c.historial.filter(h =>
+h.torneo != torneo.nombre
+);
+
+});
+
+// borrar torneo
+torneos.splice(i,1);
+
+// recalcular FIFA
+recalcularTodo();
+
+guardar();
+cerrarPanel();
+render();
+
+}
+
+function guardarConfig(){
+let t=torneos[torneoActual];
+t.nombre=document.getElementById("nom").value;
+t.icono=document.getElementById("ico").value;
+t.cruces=+document.getElementById("cr").value;
+t.pv=+document.getElementById("pv").value;
+t.pe=+document.getElementById("pe").value;
+t.pp=+document.getElementById("pp").value;
+guardar();
+render();
+}
+
+function configurarMundial(){
+
+let t = torneos[torneoActual];
+
+// chequeo
+if(!t.clubes || t.clubes.length < 2){
+aviso("Necesitas al menos 2 clubes");
+return;
+}
+
+// 🔥 PANEL para elegir grupos
+panel.style.display = "flex";
+panel.style.pointerEvents = "auto";
+panel.style.alignItems = "center";
+panel.style.justifyContent = "center";
+panel.style.background = "rgba(0,0,0,.7)";
+
+panel.innerHTML = `
+<div style="
+background:#111;
+padding:20px;
+border-radius:10px;
+text-align:center;
+">
+
+<h3>🌍 Configurar Mundial</h3>
+
+Cantidad de grupos:
+<input id="cantGrupos" type="number" min="1" max="${t.clubes.length}" value="2">
+
+<br><br>
+
+<button onclick="crearGruposAuto()">Automático</button>
+<button onclick="configurarGruposManual()">Manual</button>
+<button onclick="cerrarPanel()">Cancelar</button>
+
+</div>
+`;
+}
+
+function configurarClasificacion(){
+
+let t = torneos[torneoActual];
+
+// valores por defecto
+if(t.ascensos === undefined) t.ascensos = 2;
+if(t.descensos === undefined) t.descensos = 0;
+
+panel.style.display = "flex";
+panel.style.pointerEvents = "auto";
+panel.style.alignItems = "center";
+panel.style.justifyContent = "center";
+panel.style.background = "rgba(0,0,0,.7)";
+
+panel.innerHTML = `
+<div style="
+background:#111;
+padding:20px;
+border-radius:10px;
+text-align:center;
+">
+
+<h3>📊 Clasificación</h3>
+
+<br>
+
+🔼 Clubes que clasifican:
+<br>
+<input id="ascensosInput" type="number" min="0" value="${t.ascensos}" style="width:60px;">
+<button onclick="cambiarAscensos(1)">⬆️</button>
+<button onclick="cambiarAscensos(-1)">⬇️</button>
+
+<br><br>
+
+🔽 Clubes que descienden:
+<br>
+<input id="descensosInput" type="number" min="0" value="${t.descensos}" style="width:60px;">
+<button onclick="cambiarDescensos(1)">⬆️</button>
+<button onclick="cambiarDescensos(-1)">⬇️</button>
+
+<br><br>
+
+<button onclick="guardarClasificacion()">Guardar</button>
+<button onclick="cerrarPanel()">Cancelar</button>
+
+</div>
+`;
+}
+
+function configurarEliminatoria(){
+
+let t = torneos[torneoActual];
+
+if(t.crucesElim === undefined){
+t.crucesElim = 2;
+}
+
+if(t.finalUnica === undefined){
+t.finalUnica = true;
+}
+
+panel.style.display = "flex";
+panel.style.pointerEvents = "auto";
+panel.style.alignItems = "center";
+panel.style.justifyContent = "center";
+panel.style.background = "rgba(0,0,0,.7)";
+
+panel.innerHTML = `
+
+<div style="
+background:#111;
+padding:20px;
+border-radius:12px;
+text-align:center;
+">
+
+<h2>🏆 Configuración Eliminatoria</h2>
+
+<br>
+
+Cantidad de cruces:
+<br><br>
+
+<input
+id="crucesElimInput"
+type="number"
+min="1"
+max="10"
+value="${t.crucesElim}"
+style="
+width:80px;
+font-size:20px;
+text-align:center;
+"
+>
+
+<br><br>
+
+<label>
+<input
+type="checkbox"
+id="finalUnicaInput"
+${t.finalUnica ? "checked" : ""}
+>
+Final única
+</label>
+
+<br><br>
+
+<button onclick="guardarConfigElim()">
+💾 Guardar
+</button>
+
+<button onclick="cerrarPanel()">
+❌ Cancelar
+</button>
+
+</div>
+`;
+}
+
+function guardarConfigElim(){
+
+let t = torneos[torneoActual];
+
+t.crucesElim =
+parseInt(document.getElementById("crucesElimInput").value) || 1;
+
+t.finalUnica =
+document.getElementById("finalUnicaInput").checked;
+
+guardar();
+
+cerrarPanel();
+
+render();
+
+aviso("Configuración guardada 🏆");
+}
+
+function cambiarAscensos(v){
+let input = document.getElementById("ascensosInput");
+input.value = Math.max(0, parseInt(input.value||0) + v);
+}
+
+function cambiarDescensos(v){
+let input = document.getElementById("descensosInput");
+input.value = Math.max(0, parseInt(input.value||0) + v);
+}
+
+function guardarClasificacion(){
+
+let t = torneos[torneoActual];
+
+t.ascensos = parseInt(document.getElementById("ascensosInput").value) || 0;
+t.descensos = parseInt(document.getElementById("descensosInput").value) || 0;
+
+cerrarPanel();
+guardar();
+render();
+
+aviso("Clasificación guardada 📊");
+}
+
+function crearGruposAuto(){
+
+let t = torneos[torneoActual];
+let n = parseInt(document.getElementById("cantGrupos").value);
+
+if(isNaN(n) || n < 1){
+aviso("Número inválido");
+return;
+}
+
+// copiar clubes
+let equipos = [...t.clubes];
+
+// mezclar
+equipos.sort(()=>Math.random()-0.5);
+
+// crear grupos
+let grupos = Array.from({length: n}, ()=>[]);
+
+// repartir
+equipos.forEach((e,i)=>{
+grupos[i % n].push(e);
+});
+
+t.grupos = grupos;
+
+cerrarPanel();
+guardar();
+render();
+
+aviso("Grupos generados automáticamente ⚽");
+}
+
+function configurarGruposManual(){
+
+let t = torneos[torneoActual];
+let n = parseInt(document.getElementById("cantGrupos").value);
+
+if(isNaN(n) || n < 1){
+aviso("Número inválido");
+return;
+}
+
+// crear grupos vacíos
+t.grupos = Array.from({length: n}, ()=>[]);
+
+panel.innerHTML = `
+<div style="
+background:#111;
+padding:20px;
+border-radius:10px;
+max-height:90%;
+overflow:auto;
+">
+
+<h3>🌍 Asignar grupos (Manual)</h3>
+
+<p id="infoSeleccion" style="color:#4caf50;">Ningún club seleccionado</p>
+
+<div style="display:flex; gap:20px; flex-wrap:wrap;">
+
+<!-- CLUBES -->
+<div>
+<h4>Clubes</h4>
+${t.clubes
+.filter(id => !t.grupos.some(g => g.includes(id)))
+.map(id=>`
+<div style="margin:5px; padding:5px; background:#222;">
+${clubNombre(id)}
+<button onclick="seleccionarClub(${id})">➕</button>
+</div>
+`).join("")}
+</div>
+
+<!-- GRUPOS -->
+${t.grupos.map((g,i)=>`
+<div>
+<h4>Grupo ${i+1}</h4>
+<div id="grupo${i}" style="min-width:120px; min-height:100px; background:#222; padding:10px;">
+</div>
+<button onclick="meterEnGrupo(${i})">Agregar aquí</button>
+</div>
+`).join("")}
+
+</div>
+
+<br>
+<button onclick="generarPartidosGrupos()">Generar partidos</button>
+<button onclick="cerrarPanel()">Cerrar</button>
+
+</div>
+`;
+
+window.clubSeleccionado = null;
+}
+
+function seleccionarClub(id){
+window.clubSeleccionado = id;
+
+let info = document.getElementById("infoSeleccion");
+
+if(info){
+info.innerHTML = `
+<span style="color:#4caf50; font-weight:bold;">
+Seleccionado:
+</span>
+
+<div style="margin-top:5px;">
+${clubNombre(id)}
+</div>
+`;
+}
+}
+
+function meterEnGrupo(i){
+
+let t = torneos[torneoActual];
+
+if(window.clubSeleccionado == null){
+aviso("Seleccioná un club primero");
+return;
+}
+
+// evitar duplicados
+if(t.grupos.some(g => g.includes(window.clubSeleccionado))){
+aviso("Ese club ya está en un grupo");
+return;
+}
+
+t.grupos[i].push(window.clubSeleccionado);
+
+// actualizar visual
+let div = document.getElementById("grupo"+i);
+div.innerHTML += `<div>${clubNombre(window.clubSeleccionado)}</div>`;
+
+window.clubSeleccionado = null;
+}
+
+function generarPartidosGrupos(){
+
+let t = torneos[torneoActual];
+
+if(!t.grupos || t.grupos.length === 0){
+aviso("No hay grupos");
+return;
+}
+
+t.jornadas = [];
+
+let jornadas = [];
+
+// por cada grupo
+t.grupos.forEach(grupo => {
+
+let partidos = [];
+
+// generar partidos del grupo
+let cruces = t.cruces || 1;
+
+for(let i=0;i<grupo.length;i++){
+  for(let j=i+1;j<grupo.length;j++){
+
+    for(let c=0;c<cruces;c++){
+
+      if(c % 2 == 0){
+        // ida
+        partidos.push({
+          c1: grupo[i],
+          c2: grupo[j],
+          g1:null,
+          g2:null
+        });
+      }else{
+        // vuelta
+        partidos.push({
+          c1: grupo[j],
+          c2: grupo[i],
+          g1:null,
+          g2:null
+        });
+      }
+
+    }
+
+  }
+}
+
+// repartir partidos en jornadas
+partidos.forEach((p,index)=>{
+if(!jornadas[index]) jornadas[index] = [];
+jornadas[index].push(p);
+});
+
+});
+
+t.jornadas = jornadas;
+t.jornadaActual = 0;
+
+cerrarPanel();
+guardar();
+render();
+
+aviso("Fixture de grupos generado ⚽🔥");
+}
+
+function guardarClubes(){
+let c=[...document.querySelectorAll("input:checked")].map(x=>+x.value);
+torneos[torneoActual].clubes=c;
+guardar();
+render();
+}
+
+function crearJugador(){
+pantalla="crearJugador";
+render();
+}
+
+function guardarJugador(){
+
+jugadores.push({
+id: Date.now(),
+nombre: document.getElementById("nJ").value || "Jugador",
+pos: document.getElementById("posJ").value,
+club: +document.getElementById("clubJ").value
+});
+
+guardar();
+ir("jugadores");
+}
+
+function editarJugador(i){
+jugadorEditando = i;
+pantalla="editarJugador";
+render();
+}
+
+function guardarEditJugador(){
+
+let j = jugadores[jugadorEditando];
+
+j.nombre = document.getElementById("nJ").value;
+j.pos = document.getElementById("posJ").value;
+j.club = +document.getElementById("clubJ").value;
+
+guardar();
+ir("jugadores");
+}
+function verPlantilla(i){
+
+let c = clubes[i];
+
+let lista = jugadores.filter(j => j.club == i);
+
+app.innerHTML = `
+<h2 style="text-align:center;">📋 ${c.nombre}</h2>
+
+<div style="text-align:center;">
+<button onclick="ir('clubes')">⬅ Volver</button>
+</div>
+
+${lista.length == 0 ? "<p style='text-align:center;'>Sin jugadores</p>" :
+lista.map(j=>`
+<div class="card">
+${j.nombre} (${j.pos})
+</div>
+`).join("")}
+`;
+}
+
+// ===== FIXTURE =====
+function generarJornadas(){
+
+let t=torneos[torneoActual];
+let equipos=[...t.clubes];
+let cruces=t.cruces||1;
+
+if(equipos.length%2!==0)equipos.push(null);
+
+let n=equipos.length;
+let rot=equipos.slice(1);
+
+let jornadas=[];
+
+for(let c=0;c<cruces;c++){
+let local=equipos[0];
+let arr=[local,...rot];
+
+for(let j=0;j<n-1;j++){
+let jornada=[];
+
+for(let i=0;i<n/2;i++){
+let a=arr[i],b=arr[n-1-i];
+
+if(a!=null && b!=null){
+if(c%2==0)jornada.push({c1:a,c2:b});
+else jornada.push({c1:b,c2:a});
+}
+}
+
+jornadas.push(jornada);
+
+// rotación
+let ult=rot.pop();
+rot.unshift(ult);
+arr=[local,...rot];
+}
+}
+
+t.jornadas=jornadas;
+t.jornadaActual=0;
+
+guardar();
+render();
+}
+
+function nuevaTemporada(){
+
+let t = torneos[torneoActual];
+
+// reset partidos
+t.jornadas = [];
+t.jornadaActual = 0;
+
+// (opcional) reset eliminatoria también
+t.eliminatorias = [];
+t.rondaActual = 0;
+
+// borrar resultados viejos (por si acaso)
+t.jornadas.forEach(j=>{
+j.forEach(p=>{
+p.g1 = null;
+p.g2 = null;
+});
+});
+
+guardar();
+render();
+}
+
+function generarEliminatoria(){
+let t=torneos[torneoActual];
+let equipos=[...t.clubes];
+
+// mezclar equipos
+equipos.sort(()=>Math.random()-0.5);
+
+let ronda=[];
+
+for(let i=0;i<equipos.length;i+=2){
+if(equipos[i+1]!=null){
+ronda.push({
+c1:equipos[i],
+c2:equipos[i+1],
+g1:null,
+g2:null
+});
+}
+}
+
+t.eliminatorias=[ronda];
+
+if(t.cruces > 1){
+t.eliminatorias.push(JSON.parse(JSON.stringify(ronda)));
+}
+
+t.rondaActual=0;
+
+// reset stats temporada
+clubes.forEach(c=>{
+c.pj=0;
+c.g=0;
+c.e=0;
+c.p=0;
+c.gf=0;
+c.gc=0;
+});
+
+guardar();
+render();
+}
+
+// ===== SIMULACIÓN =====
+function simularJornada(){
+
+let t = torneos[torneoActual];
+
+// 🔥 guardar ranking ANTES de jugar
+localStorage.setItem("rankingPrevio", JSON.stringify(
+[...clubes].sort((a,b)=>b.fifa - a.fifa)
+));
+
+
+if(t.jornadaActual === undefined){
+t.jornadaActual = 0;
+}
+
+let jornada = t.jornadas[t.jornadaActual];
+if(!jornada) return;
+
+jornada.forEach(p=>{
+
+let id1 = p.c1 ?? p.a;
+let id2 = p.c2 ?? p.b;
+
+let A = clubes[id1];
+let B = clubes[id2];
+
+// 🆚 HISTORIAL ENFRENTAMIENTOS
+
+if(!A.vs) A.vs = {};
+if(!B.vs) B.vs = {};
+
+if(!A.vs[id2]){
+A.vs[id2] = {g:0,e:0,p:0};
+}
+if(!B.vs[id1]){
+B.vs[id1] = {g:0,e:0,p:0};
+}
+
+if(!A.nivel) A.nivel = 50;
+if(!B.nivel) B.nivel = 50;
+
+let diff = A.nivel - B.nivel;
+
+// base aleatoria
+let g1 = Math.floor(Math.random()*3 + diff/20);
+let g2 = Math.floor(Math.random()*3 - diff/20);
+
+// asegurar no negativos
+g1 = Math.max(0, g1);
+g2 = Math.max(0, g2);
+
+p.g1 = g1;
+p.g2 = g2;
+
+A.pj++; B.pj++;
+
+A.gf += g1; A.gc += g2;
+B.gf += g2; B.gc += g1;
+if(g1 > g2){
+A.g++; 
+B.p++;
+
+A.vs[id2].g++;
+B.vs[id1].p++;
+
+A.fifa += 25;
+B.fifa -= 15;
+
+}
+else if(g2 > g1){
+B.g++; 
+A.p++;
+
+B.vs[id1].g++;
+A.vs[id2].p++;
+
+B.fifa += 25;
+A.fifa -= 15;
+
+}
+else{
+A.e++; 
+B.e++;
+
+A.vs[id2].e++;
+B.vs[id1].e++;
+
+A.fifa += 10;
+B.fifa += 10;
+}
+
+// 📈 EVOLUCIÓN DE CLUBES (modo GOD)
+if(g1 > g2) A.nivel += 0.2;
+if(g2 > g1) B.nivel += 0.2;
+
+// límites
+A.nivel = Math.min(100, A.nivel);
+B.nivel = Math.min(100, B.nivel);
+// ⭐ SISTEMA FIFA GOD
+if(g1 > g2){
+A.fifa += 10;
+B.fifa -= 5;
+}
+else if(g2 > g1){
+B.fifa += 10;
+A.fifa -= 5;
+}
+else{
+A.fifa += 2;
+B.fifa += 2;
+}
+
+// límites
+A.fifa = Math.max(0, A.fifa);
+B.fifa = Math.max(0, B.fifa);
+
+});
+
+// 🏆 detectar campeón
+let total = t.jornadas.length;
+
+if(t.jornadaActual >= total-1){
+
+t.jornadaActual = total-1;
+
+// 🔥 SI ES MUNDIAL → generar eliminatoria
+if(t.formato == "Mundial"){
+
+generarEliminatoriaDesdeGrupos();
+return;
+
+}
+
+// 🏆 SI ES LIGA → campeón normal
+let tabla = generarTabla();
+let ganador = tabla[0][0];
+
+if(!clubes[ganador].historial){
+clubes[ganador].historial = [];
+}
+
+if(t.formato == "Liga"){
+clubes[ganador].historial.push({
+torneo: t.nombre,
+tipo: "liga",
+pts: tabla[0][1].pts,
+segundo: clubNombre(tabla[1][0])
+});
+}
+
+if(clubes[ganador]) clubes[ganador].titulos++;
+
+mostrarCampeon(ganador);
+
+guardar();
+render();
+return;
+}
+
+// avanzar jornada
+t.jornadaActual++;
+
+guardar();
+render();
+}
+
+function abrirPanel(i){
+
+panel.style.display = "flex";
+panel.style.pointerEvents = "auto";
+
+partidoEditando = i;
+
+let t = torneos[torneoActual];
+let p = t.jornadas[t.jornadaActual][i];
+
+let id1 = p.c1 ?? p.a;
+let id2 = p.c2 ?? p.b;
+
+// marcador temporal
+window.marcadorTemp = {
+a: p.g1 ?? 0,
+b: p.g2 ?? 0
+};
+
+panel.innerHTML = `
+
+<div style="
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,.85);
+display:flex;
+justify-content:center;
+align-items:center;
+z-index:9999;
+">
+
+<div style="
+background:#111;
+padding:25px;
+border-radius:15px;
+text-align:center;
+min-width:300px;
+border:1px solid #333;
+">
+
+<h2 style="
+margin-bottom:20px;
+text-align:center;
+font-size:28px;
+line-height:1.4;
+">
+${clubNombre(id1)} 
+<span style="color:#ff9800;">vs</span> 
+${clubNombre(id2)}
+</h2>
+
+<div style="
+display:flex;
+justify-content:center;
+align-items:center;
+gap:25px;
+">
+
+<div>
+
+<button onclick="sumarGol('a')">➕</button>
+
+<div id="scoreA"
+style="
+font-size:48px;
+font-weight:bold;
+margin:10px 0;
+">
+${marcadorTemp.a}
+</div>
+
+<button onclick="restarGol('a')">➖</button>
+
+</div>
+
+<div style="font-size:40px;">-</div>
+
+<div>
+
+<button onclick="sumarGol('b')">➕</button>
+
+<div id="scoreB"
+style="
+font-size:48px;
+font-weight:bold;
+margin:10px 0;
+">
+${marcadorTemp.b}
+</div>
+
+<button onclick="restarGol('b')">➖</button>
+
+</div>
+
+</div>
+
+<br>
+
+<button
+onclick="guardarMarcador()"
+style="
+background:#4caf50;
+padding:10px 20px;
+border:none;
+border-radius:8px;
+margin-right:10px;
+">
+💾 Guardar
+</button>
+
+<button
+onclick="borrarResultadoLiga()"
+style="
+background:#f44336;
+padding:10px 20px;
+border:none;
+border-radius:8px;
+margin-right:10px;
+">
+🗑️ Borrar
+</button>
+
+<button onclick="cerrarPanel()">
+❌
+</button>
+
+</div>
+</div>
+`;
+}
+
+function sumarGol(eq){
+marcadorTemp[eq]++;
+actualizarMarcador(eq);
+}
+
+function restarGol(eq){
+if(marcadorTemp[eq] > 0){
+marcadorTemp[eq]--;
+actualizarMarcador(eq);
+}
+}
+
+function actualizarMarcador(eq){
+
+if(eq == "a"){
+animarNumero("scoreA", marcadorTemp.a);
+}else if(eq == "b"){
+animarNumero("scoreB", marcadorTemp.b);
+}
+
+}
+
+function guardarMarcador(){
+
+let t = torneos[torneoActual];
+let p = t.jornadas[t.jornadaActual][partidoEditando];
+
+// guardar resultado real
+p.g1 = marcadorTemp.a;
+p.g2 = marcadorTemp.b;
+
+// cerrar panel
+cerrarPanel();
+
+recalcularTodo();
+
+// guardar datos
+guardar();
+
+// refrescar UI
+render();
+
+}
+
+function borrarResultadoLiga(){
+
+let t = torneos[torneoActual];
+
+let p = t.jornadas[t.jornadaActual][partidoEditando];
+
+p.g1 = null;
+p.g2 = null;
+
+guardar();
+
+cerrarPanel();
+
+recalcularTodo();
+
+render();
+
+aviso("Resultado eliminado 🗑️");
+}
+
+function manual(){
+
+let t = torneos[torneoActual];
+let p = t.jornadas[t.jornadaActual][partidoEditando];
+
+let g1 = parseInt(document.getElementById("g1Liga").value);
+let g2 = parseInt(document.getElementById("g2Liga").value);
+
+// validar
+if(isNaN(g1) || isNaN(g2)){
+setTimeout(()=>{
+aviso("Resultado inválido");
+document.getElementById("g1").focus();
+},50);
+return;
+}
+
+// no negativos
+if(g1 < 0 || g2 < 0){
+setTimeout(()=>{
+aviso("No se permiten goles negativos");
+document.getElementById("g1Liga").focus();
+},50);
+return;
+}
+
+p.g1 = g1;
+p.g2 = g2;
+
+cerrarPanel();
+guardar();
+setTimeout(()=>render(),50);
+}
+
+function abrirPanelElim(i){
+partidoEditando=i;
+
+panel.innerHTML=`
+<div class="panel">
+<button onclick="simElim()">🎲</button>
+<input id="g1"><input id="g2">
+<button onclick="manualElim()">OK</button>
+</div>`;
+}
+
+function simElim(){
+let t=torneos[torneoActual];
+let p=t.eliminatorias[t.rondaActual][partidoEditando];
+
+p.g1=Math.floor(Math.random()*3);
+p.g2=Math.floor(Math.random()*3);
+
+if(p.g1==p.g2)p.g1++;
+
+guardar();render();
+}
+
+function manualElim(){
+let t=torneos[torneoActual];
+let p=t.eliminatorias[t.rondaActual][partidoEditando];
+
+p.g1=+document.getElementById("g1").value;
+p.g2=+document.getElementById("g2").value;
+
+guardar();render();
+}
+
+function recalcularTodo(){
+
+// RESET CLUBES
+clubes.forEach(c=>{
+
+c.pj = 0;
+c.g = 0;
+c.e = 0;
+c.p = 0;
+
+c.gf = 0;
+c.gc = 0;
+
+c.fifa = 1000;
+
+c.titulos = 0;
+
+c.vs = {};
+
+});
+
+// RECORRER TORNEOS
+torneos.forEach(t=>{
+
+// LIGA / MUNDIAL
+if(t.jornadas){
+
+t.jornadas.forEach(j=>{
+
+j.forEach(p=>{
+
+if(p.g1 == null || p.g2 == null) return;
+
+let A = clubes[p.c1];
+let B = clubes[p.c2];
+
+if(!A || !B) return;
+
+// stats
+A.pj++;
+B.pj++;
+
+A.gf += p.g1;
+A.gc += p.g2;
+
+B.gf += p.g2;
+B.gc += p.g1;
+
+// vs
+if(!A.vs[p.c2]){
+A.vs[p.c2] = {g:0,e:0,p:0};
+}
+
+if(!B.vs[p.c1]){
+B.vs[p.c1] = {g:0,e:0,p:0};
+}
+
+// RESULTADO
+if(p.g1 > p.g2){
+
+A.g++;
+B.p++;
+
+A.fifa += 30;
+B.fifa -= 15;
+
+A.vs[p.c2].g++;
+B.vs[p.c1].p++;
+
+}
+else if(p.g2 > p.g1){
+
+B.g++;
+A.p++;
+
+B.fifa += 30;
+A.fifa -= 15;
+
+B.vs[p.c1].g++;
+A.vs[p.c2].p++;
+
+}
+else{
+
+A.e++;
+B.e++;
+
+A.fifa += 10;
+B.fifa += 10;
+
+A.vs[p.c2].e++;
+B.vs[p.c1].e++;
+
+}
+
+A.fifa = Math.max(0,A.fifa);
+B.fifa = Math.max(0,B.fifa);
+
+});
+
+});
+
+}
+
+// ELIMINATORIAS
+if(t.eliminatorias){
+
+t.eliminatorias.forEach(ronda=>{
+
+ronda.forEach(p=>{
+
+if(p.g1 == null || p.g2 == null) return;
+
+let A = clubes[p.c1];
+let B = clubes[p.c2];
+
+if(!A || !B) return;
+
+if(p.g1 > p.g2){
+
+A.fifa += 25;
+B.fifa -= 10;
+
+}
+else if(p.g2 > p.g1){
+
+B.fifa += 25;
+A.fifa -= 10;
+
+}
+
+A.fifa = Math.max(0,A.fifa);
+B.fifa = Math.max(0,B.fifa);
+
+});
+
+});
+
+}
+
+// CAMPEÓN LIGA
+if(t.formato == "Liga" && t.jornadas?.length){
+
+let completo = true;
+
+t.jornadas.forEach(j=>{
+j.forEach(p=>{
+if(p.g1 == null) completo = false;
+});
+});
+
+if(completo){
+
+let tabla = {};
+
+t.clubes.forEach(id=>{
+tabla[id] = {
+pts:0,
+dg:0
+};
+});
+
+t.jornadas.forEach(j=>{
+j.forEach(p=>{
+
+if(p.g1 > p.g2){
+tabla[p.c1].pts += 3;
+}
+else if(p.g2 > p.g1){
+tabla[p.c2].pts += 3;
+}
+else{
+tabla[p.c1].pts += 1;
+tabla[p.c2].pts += 1;
+}
+
+tabla[p.c1].dg += p.g1-p.g2;
+tabla[p.c2].dg += p.g2-p.g1;
+
+});
+});
+
+let orden = Object.entries(tabla).sort((a,b)=>{
+if(b[1].pts != a[1].pts){
+return b[1].pts - a[1].pts;
+}
+
+return b[1].dg - a[1].dg;
+});
+
+let campeon = orden[0]?.[0];
+
+if(!clubes[campeon].historial){
+clubes[campeon].historial = [];
+}
+
+// evitar duplicados
+let existe = clubes[campeon].historial.some(h =>
+h.torneo == t.nombre
+);
+
+if(!existe){
+
+clubes[campeon].historial.push({
+torneo: t.nombre,
+tipo: "liga"
+});
+
+}
+
+clubes[campeon].fifa += 100;
+
+}
+
+}
+
+});
+
+guardar();
+
+}
+
+// ===== TABLA =====
+function generarTabla(){
+
+let t=torneos[torneoActual];
+
+let tabla={};
+
+// 🔥 SI ES MUNDIAL → usar grupos
+if(t.formato == "Mundial" && t.grupos){
+
+t.grupos.forEach(grupo=>{
+grupo.forEach(id=>{
+tabla[id]={
+pts:0,
+pj:0,
+g:0,
+e:0,
+p:0,
+gf:0,
+gc:0,
+dg:0
+};
+});
+});
+
+}else{
+
+// normal (liga)
+t.clubes.forEach(id=>{
+tabla[id]={
+pts:0,
+pj:0,
+g:0,
+e:0,
+p:0,
+gf:0,
+gc:0,
+dg:0
+};
+});
+
+}
+
+t.jornadas.forEach(j=>{
+j.forEach(p=>{
+
+if(p.g1==null || p.g2==null) return;
+
+let id1 = p.c1 ?? p.a;
+let id2 = p.c2 ?? p.b;
+
+let A = tabla[id1];
+let B = tabla[id2];
+
+if(!A || !B) return;
+
+A.pj++; B.pj++;
+
+A.gf+=p.g1; A.gc+=p.g2;
+B.gf+=p.g2; B.gc+=p.g1;
+
+if(p.g1>p.g2){
+A.pts+=3; A.g++;
+B.p++; 
+}
+else if(p.g2>p.g1){
+B.pts+=3; B.g++;
+A.p++;
+}
+else{
+A.pts+=1; B.pts+=1;
+A.e++; B.e++;
+}
+
+});
+});
+
+// diferencia de gol
+Object.values(tabla).forEach(t=>{
+t.dg = t.gf - t.gc;
+});
+
+// ordenar
+return Object.entries(tabla)
+.sort((a,b)=>{
+if(b[1].pts!=a[1].pts) return b[1].pts-a[1].pts;
+return b[1].dg-a[1].dg;
+});
+}
+
+function clasificadosAGrupos(){
+
+let t = torneos[torneoActual];
+
+if(t.formato != "Mundial" || !t.grupos) return;
+
+// tabla por grupo
+let clasificados = [];
+
+t.grupos.forEach(grupo=>{
+
+let tabla = {};
+
+// crear tabla vacía
+grupo.forEach(id=>{
+tabla[id]={
+pts:0,
+dg:0,
+gf:0
+};
+});
+
+// recorrer partidos
+t.jornadas.forEach(j=>{
+j.forEach(p=>{
+
+let id1 = p.c1 ?? p.a;
+let id2 = p.c2 ?? p.b;
+
+if(!grupo.includes(id1) || !grupo.includes(id2)) return;
+if(p.g1 == null) return;
+
+let A = tabla[id1];
+let B = tabla[id2];
+
+A.gf += p.g1;
+B.gf += p.g2;
+
+A.dg += (p.g1 - p.g2);
+B.dg += (p.g2 - p.g1);
+
+if(p.g1 > p.g2){
+A.pts += 3;
+}else if(p.g2 > p.g1){
+B.pts += 3;
+}else{
+A.pts += 1;
+B.pts += 1;
+}
+
+});
+});
+
+// ordenar grupo
+let ordenados = Object.entries(tabla)
+.sort((a,b)=>{
+if(b[1].pts != a[1].pts) return b[1].pts - a[1].pts;
+if(b[1].dg != a[1].dg) return b[1].dg - a[1].dg;
+return b[1].gf - a[1].gf;
+});
+
+// agarrar clasificados
+let pasan = t.ascensos || 2;
+
+for(let i=0;i<pasan;i++){
+if(ordenados[i]){
+clasificados.push(ordenados[i][0]);
+}
+}
+
+});
+
+return clasificados;
+}
+
+function generarEliminatoriaDesdeGrupos(){
+
+let t = torneos[torneoActual];
+
+let equipos = clasificadosAGrupos();
+
+if(!equipos || equipos.length < 2){
+aviso("No hay suficientes clasificados");
+return;
+}
+
+t.formato = "Eliminatoria";
+
+// mezclar
+equipos.sort(()=>Math.random()-0.5);
+
+let ronda = [];
+
+for(let i=0;i<equipos.length;i+=2){
+if(equipos[i+1]){
+ronda.push({
+c1:equipos[i],
+c2:equipos[i+1],
+g1:null,
+g2:null
+});
+}
+}
+
+t.eliminatorias = [ronda];
+t.rondaActual = 0;
+
+guardar();
+render();
+
+aviso("Eliminatoria generada automáticamente 🏆");
+}
+
+function rankingFIFA(){
+
+return clubes
+.map(c=>c)
+.sort((a,b)=>b.fifa - a.fifa);
+
+}
+
+function rankingConMovimiento(){
+
+let anterior = JSON.parse(localStorage.getItem("rankingPrevio")) || [];
+
+let actual = [...clubes].sort((a,b)=>b.fifa - a.fifa);
+
+// mapear posiciones anteriores
+let mapaAnterior = {};
+anterior.forEach((c,i)=>{
+mapaAnterior[c.id] = i;
+});
+
+// agregar movimiento
+let resultado = actual.map((c,i)=>{
+let prev = mapaAnterior[c.id];
+
+let mov = 0;
+
+if(prev !== undefined){
+mov = prev - i;
+}
+
+return {
+...c,
+pos: i+1,
+mov
+};
+});
+
+// guardar ranking actual
+
+return resultado;
+}
+
+function renderEliminatoria(t){
+
+let html = `
+<h2 style="text-align:center;">🏆 Eliminatoria</h2>
+
+<div style="
+display:flex;
+gap:40px;
+overflow-x:auto;
+padding:20px;
+align-items:center;
+">
+`;
+
+t.eliminatorias.forEach((ronda, ri)=>{
+
+html += `
+<div style="
+display:flex;
+flex-direction:column;
+justify-content:center;
+gap:20px;
+">
+<h3 style="text-align:center;">R${ri+1}</h3>
+`;
+
+ronda.forEach((p,i)=>{
+
+html += `
+<div style="
+background:#1a1a1a;
+border:1px solid #333;
+padding:12px;
+border-radius:10px;
+min-width:180px;
+position:relative;
+">
+
+<div style="display:flex; justify-content:space-between;">
+<span>${clubNombre(p.c1)}</span>
+<span>${p.g1 ?? "-"}</span>
+</div>
+
+<div style="display:flex; justify-content:space-between;">
+<span>${clubNombre(p.c2)}</span>
+<span>${p.g2 ?? "-"}</span>
+</div>
+
+<button onclick="jugarPartidoElim(${ri},${i})"
+style="
+margin-top:8px;
+width:100%;
+background:#ff9800;
+border:none;
+padding:5px;
+border-radius:5px;
+cursor:pointer;
+">
+Jugar
+</button>
+
+</div>
+`;
+
+});
+
+html += `</div>`;
+});
+
+html += `</div>
+
+<div style="text-align:center;">
+<button onclick="siguienteRonda()"
+style="
+background:#4caf50;
+border:none;
+padding:10px 20px;
+border-radius:8px;
+cursor:pointer;
+">
+➡️ Siguiente ronda
+</button>
+</div>
+`;
+
+return html;
+}
+
+function renderBracketTabla(t){
+
+let html = `
+<h2 style="text-align:center;">🏆 Camino al título</h2>
+
+<div style="
+display:flex;
+gap:30px;
+overflow-x:auto;
+padding:20px;
+align-items:center;
+">
+`;
+
+t.eliminatorias.forEach((ronda, ri)=>{
+
+let nombreRonda = "Ronda "+(ri+1);
+
+if(ronda.length==8) nombreRonda="Octavos";
+if(ronda.length==4) nombreRonda="Cuartos";
+if(ronda.length==2) nombreRonda="Semifinal";
+if(ronda.length==1) nombreRonda="Final";
+
+html += `
+<div style="
+display:flex;
+flex-direction:column;
+justify-content:center;
+gap:${80/(ri+1)}px;
+min-width:220px;
+">
+<h3 style="text-align:center;">${nombreRonda}</h3>
+`;
+
+ronda.forEach(p=>{
+
+let global = "-";
+
+if(p.g1!=null && p.g2!=null){
+global = `${p.g1}-${p.g2}`;
+}
+
+html += `
+<div style="
+background:#1a1a1a;
+border:1px solid #444;
+border-radius:10px;
+padding:10px;
+position:relative;
+">
+
+<div style="display:flex;justify-content:space-between;">
+<span>${clubNombre(p.c1)}</span>
+<span>${p.g1 ?? "-"}</span>
+</div>
+
+<div style="display:flex;justify-content:space-between;">
+<span>${clubNombre(p.c2)}</span>
+<span>${p.g2 ?? "-"}</span>
+</div>
+
+<div style="
+text-align:center;
+margin-top:8px;
+font-size:12px;
+color:gold;
+">
+Global: ${global}
+</div>
+
+<div style="
+position:absolute;
+right:-30px;
+top:50%;
+width:30px;
+height:2px;
+background:#888;
+"></div>
+
+</div>
+`;
+});
+
+html += `</div>`;
+});
+
+html += `</div>`;
+
+return html;
+}
+
+function siguienteRonda(){
+let t=torneos[torneoActual];
+
+// seguridad total
+if(!t.eliminatorias || t.eliminatorias.length===0){
+return;
+}
+
+if(t.rondaActual===undefined){
+t.rondaActual=0;
+}
+
+let ronda=t.eliminatorias[t.rondaActual];
+if(!ronda) return;
+
+let ganadores=[];
+
+for(let p of ronda){
+
+// 🚫 NO avanzar si faltan partidos
+if(p.g1==null || p.g2==null){
+return;
+}
+
+if(p.g1 > p.g2) ganadores.push(p.c1);
+else ganadores.push(p.c2);
+}
+
+// 🚫 evitar repetir campeón infinito
+if(t.terminado){
+return;
+}
+
+// 🏆 SOLO si hay 1 ganador real
+if(ganadores.length === 1){
+
+let campeon = ganadores[0];
+let final = ronda[0];
+
+// detectar subcampeón
+let sub = final.c1 == campeon ? final.c2 : final.c1;
+
+// crear historial si no existe
+if(!clubes[campeon].historial){
+clubes[campeon].historial = [];
+}
+
+// guardar datos completos
+clubes[campeon].historial.push({
+torneo: t.nombre,
+tipo: "elim",
+rival: clubNombre(sub),
+resultado: final.g1 + "-" + final.g2
+});
+
+// sumar título
+clubes[campeon].titulos++;
+
+t.terminado = true;
+
+mostrarCampeon(campeon);
+
+guardar();
+render();
+return;
+}
+
+// generar siguiente ronda
+let nueva=[];
+for(let i=0;i<ganadores.length;i+=2){
+if(ganadores[i+1]!==undefined){
+let cruces = t.crucesElim || 1;
+
+// final única
+if(
+t.finalUnica &&
+ganadores.length == 2
+){
+cruces = 1;
+}
+
+for(let c=0;c<cruces;c++){
+
+nueva.push({
+c1:ganadores[i],
+c2:ganadores[i+1],
+g1:null,
+g2:null
+});
+
+}
+}
+}
+
+if(nueva.length>0){
+t.eliminatorias.push(nueva);
+t.rondaActual++;
+}
+
+guardar();
+render();
+}
+
+function generarLogo(){
+let color = document.getElementById("colorClub")?.value || "#ff9800";
+let simbolo = document.getElementById("simboloClub")?.value || "⚽";
+
+return `
+<div style="
+width:40px;
+height:40px;
+border-radius:50%;
+background:${color};
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:22px;
+">
+${simbolo}
+</div>
+`;
+}
+
+function clubNombre(id){
+let c=clubes.find(c=>c.id==id);
+
+// 🛠️ si no encuentra por id, probar directo
+if(!c){
+c=clubes[id];
+}
+
+return c
+? `
+<div style="
+display:flex;
+align-items:center;
+gap:6px;
+">
+${
+c.escudo
+? `<img src="${c.escudo}" style="
+width:22px;
+height:22px;
+border-radius:50%;
+object-fit:cover;
+">`
+: (c.icono || "⚽")
+}
+
+<span>${c.nombre}</span>
+</div>
+`
+: "Club";
+}
+
+let partidoActual = null;
+
+function jugarPartidoElim(rondaIndex, partidoIndex){
+
+panel.style.display = "flex";
+panel.style.pointerEvents = "auto";
+
+let t = torneos[torneoActual];
+let p = t.eliminatorias[rondaIndex][partidoIndex];
+
+let id1 = p.c1 ?? p.a;
+let id2 = p.c2 ?? p.b;
+
+partidoActual = {
+rondaIndex,
+partidoIndex
+};
+
+// marcador temporal
+window.marcadorTemp = {
+a: p.g1 ?? 0,
+b: p.g2 ?? 0
+};
+
+panel.innerHTML = `
+
+<div style="
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,.85);
+display:flex;
+justify-content:center;
+align-items:center;
+z-index:9999;
+">
+
+<div style="
+background:#111;
+padding:25px;
+border-radius:15px;
+text-align:center;
+min-width:300px;
+border:1px solid #333;
+">
+
+<h2 style="
+margin-bottom:20px;
+text-align:center;
+font-size:28px;
+line-height:1.4;
+">
+${clubNombre(id1)} 
+<span style="color:#ff9800;">vs</span> 
+${clubNombre(id2)}
+</h2>
+
+<div style="
+display:flex;
+justify-content:center;
+align-items:center;
+gap:25px;
+">
+
+<!-- LOCAL -->
+<div>
+
+<button onclick="sumarGol('a')">➕</button>
+
+<div id="scoreA"
+style="
+font-size:48px;
+font-weight:bold;
+margin:10px 0;
+">
+${marcadorTemp.a}
+</div>
+
+<button onclick="restarGol('a')">➖</button>
+
+</div>
+
+<div style="font-size:40px;">
+-
+</div>
+
+<!-- VISITA -->
+<div>
+
+<button onclick="sumarGol('b')">➕</button>
+
+<div id="scoreB"
+style="
+font-size:48px;
+font-weight:bold;
+margin:10px 0;
+">
+${marcadorTemp.b}
+</div>
+
+<button onclick="restarGol('b')">➖</button>
+
+</div>
+
+</div>
+
+<br>
+
+<button
+onclick="guardarResultadoElim()"
+style="
+background:#4caf50;
+padding:10px 20px;
+border:none;
+border-radius:8px;
+margin-right:10px;
+">
+💾 Guardar
+</button>
+
+<button
+onclick="borrarResultadoElim()"
+style="
+background:#f44336;
+padding:10px 20px;
+border:none;
+border-radius:8px;
+margin-right:10px;
+">
+🗑️ Borrar
+</button>
+
+<button onclick="cerrarPanel()">
+❌
+</button>
+
+</div>
+</div>
+`;
+}
+
+function borrarClub(i){
+
+let clubId = clubes[i].id;
+
+// si está en torneo
+let usado = torneos.some(t => t.clubes.includes(i));
+
+if(usado){
+mostrarAviso("No podés borrar un club que está en un torneo");
+return;
+}
+
+panel.style.display = "flex";
+panel.style.pointerEvents = "auto";
+
+// panel personalizado
+panel.innerHTML = `
+<div style="
+position:fixed;
+top:0;left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.8);
+display:flex;
+justify-content:center;
+align-items:center;
+">
+
+<div style="
+background:#111;
+padding:20px;
+border-radius:10px;
+text-align:center;
+">
+
+<h3>¿Eliminar club?</h3>
+
+<button onclick="confirmarBorrado(${i})">Sí</button>
+<button onclick="cerrarPanel()">No</button>
+
+</div>
+</div>
+`;
+
+
+}
+
+function confirmarBorrado(i){
+clubes.splice(i,1);
+cerrarPanel();
+guardar();
+render();
+}
+
+function mostrarAviso(txt){
+panel.innerHTML = `
+<div style="
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+background:red;
+padding:10px 20px;
+border-radius:10px;
+">
+${txt}
+</div>
+`;
+
+setTimeout(()=>{ cerrarPanel(); },1500);
+}
+
+function verVitrina(i){
+
+let c = clubes[i];
+let historial = c.historial || [];
+
+// ⭐ ESTRELLAS
+let estrellas = "⭐";
+
+if((c.titulos || 0) >= 5) estrellas = "⭐⭐";
+if((c.titulos || 0) >= 10) estrellas = "⭐⭐⭐";
+if((c.titulos || 0) >= 20) estrellas = "⭐⭐⭐⭐";
+if((c.titulos || 0) >= 30) estrellas = "⭐⭐⭐⭐⭐";
+
+// 👑 APODO HISTÓRICO
+
+let maxTitulos = Math.max(
+...clubes.map(x => x.titulos || 0)
+);
+
+let apodo = "🦠 Microbio";
+
+if((c.titulos || 0) >= 1){
+apodo = "🤏 Club chico";
+}
+
+if((c.titulos || 0) >= 3){
+apodo = "Club competitivo";
+}
+
+if((c.titulos || 0) >= 5){
+apodo = "Club grande";
+}
+
+if((c.titulos || 0) >= 7){
+apodo = "Gigante";
+}
+
+// 🔥 EL MEJOR DEL JUEGO
+if(
+(c.titulos || 0) >= 10 &&
+(c.titulos || 0) == maxTitulos
+){
+apodo = "El Mejor de todos";
+}
+
+// 📊 STATS
+let partidos = c.pj || 0;
+let victorias = c.g || 0;
+let empates = c.e || 0;
+let derrotas = c.p || 0;
+
+let winrate = partidos > 0
+? Math.round((victorias / partidos) * 100)
+: 0;
+
+// 📶 RANKING FIFA
+let ranking = [...clubes]
+.sort((a,b)=>b.fifa-a.fifa)
+.findIndex(x=>x.id==c.id)+1;
+
+// ⚔️ RIVAL HISTÓRICO
+
+let rivalNombre = "Sin rival";
+let rivalData = null;
+
+if(c.vs){
+
+let mejor = null;
+let total = 0;
+
+Object.entries(c.vs).forEach(([id,data])=>{
+
+let partidos =
+(data.g || 0) +
+(data.e || 0) +
+(data.p || 0);
+
+if(partidos > total){
+
+total = partidos;
+mejor = {
+id,
+...data
+};
+
+}
+
+});
+
+if(mejor){
+
+rivalNombre = clubNombre(mejor.id);
+rivalData = mejor;
+
+}
+
+}
+
+// 🏆 HISTORIAL
+let contenido = "";
+
+if(historial.length === 0){
+
+contenido = `
+<div class="card" style="text-align:center;">
+Sin títulos todavía
+</div>
+`;
+
+}else{
+
+contenido = historial.map(h=>{
+
+// 🟦 LIGA
+if(h.tipo === "liga"){
+
+return `
+<div class="card" style="
+border-left:6px solid #2196f3;
+">
+
+<div style="
+font-size:22px;
+font-weight:bold;
+color:#64b5f6;
+">
+🏆 ${h.torneo}
+</div>
+
+<div style="margin-top:10px;">
+🥇 Campeón de liga
+</div>
+
+<div style="margin-top:5px;">
+🥈 Subcampeón: ${h.segundo || "?"}
+</div>
+
+<div style="margin-top:5px;">
+⭐ ${h.pts ?? 0} puntos
+</div>
+
+</div>
+`;
+}
+
+// 🔴 ELIMINATORIA
+return `
+<div class="card" style="
+border-left:6px solid #f44336;
+">
+
+<div style="
+font-size:22px;
+font-weight:bold;
+color:#ff8a80;
+">
+🏆 ${h.torneo}
+</div>
+
+<div style="margin-top:10px;">
+⚔️ Final vs ${h.rival || "?"}
+</div>
+
+<div style="margin-top:5px;">
+📊 Resultado: ${h.resultado || "?"}
+</div>
+
+</div>
+`;
+
+}).join("");
+
+}
+
+// 🖥️ RENDER
+app.innerHTML = `
+
+<div style="
+padding:15px;
+">
+
+<div style="
+background:linear-gradient(135deg,#1a1a1a,#2b2b2b);
+padding:25px;
+border-radius:20px;
+text-align:center;
+border:2px solid gold;
+box-shadow:0 0 20px rgba(255,215,0,.25);
+">
+
+<div style="
+font-size:42px;
+font-weight:bold;
+">
+${c.icono || "⚽"} ${c.nombre}
+</div>
+
+<div style="
+font-size:26px;
+margin-top:10px;
+color:gold;
+">
+${estrellas}
+</div>
+
+<div style="
+margin-top:10px;
+font-size:20px;
+font-weight:bold;
+color:#ff9800;
+">
+${apodo}
+</div>
+
+<div style="
+margin-top:10px;
+font-size:18px;
+color:#8ab4ff;
+">
+📶 Ranking FIFA #${ranking}
+</div>
+
+</div>
+
+<div class="card">
+
+<h2 style="text-align:center;">
+📊 Estadísticas
+</h2>
+
+<div style="
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:10px;
+margin-top:15px;
+">
+
+<div>🏆 Títulos</div>
+<div>${c.titulos || 0}</div>
+
+<div>⚔️ Partidos</div>
+<div>${partidos}</div>
+
+<div>✅ Victorias</div>
+<div>${victorias}</div>
+
+<div>🤝 Empates</div>
+<div>${empates}</div>
+
+<div>❌ Derrotas</div>
+<div>${derrotas}</div>
+
+<div>⚽ Goles</div>
+<div>${c.gf || 0}</div>
+
+<div>🥅 Encajados</div>
+<div>${c.gc || 0}</div>
+
+<div>📈 Winrate</div>
+<div>${winrate}%</div>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h2 style="text-align:center;">
+⚔️ Clasico
+</h2>
+
+<div style="
+text-align:center;
+margin-top:15px;
+">
+
+<div style="
+font-size:28px;
+font-weight:bold;
+color:#ff9800;
+">
+${rivalNombre}
+</div>
+
+${rivalData ? `
+
+<div style="margin-top:15px;">
+✅ ${rivalData.g} victorias
+</div>
+
+<div style="margin-top:10px;">
+🤝 ${rivalData.e} empates
+</div>
+
+<div style="margin-top:10px;">
+❌ ${rivalData.p} derrotas
+</div>
+
+${
+(rivalData.g + rivalData.e + rivalData.p) >= 10
+? `
+<div style="
+margin-top:15px;
+color:red;
+font-weight:bold;
+font-size:20px;
+">
+🔥 SuperClasico
+</div>
+`
+: ""
+}
+
+` : `
+<div style="margin-top:10px;">
+Sin enfrentamientos
+</div>
+`}
+
+</div>
+
+</div>
+
+<h2 style="
+text-align:center;
+margin-top:20px;
+">
+🏆 Historial
+</h2>
+
+${contenido}
+
+<div style="
+text-align:center;
+margin-top:20px;
+">
+<button onclick="ir('vitrina')">
+⬅ Volver
+</button>
+</div>
+
+</div>
+`;
+
+}
+
+function guardarResultadoElim(){
+
+let t = torneos[torneoActual];
+
+let {rondaIndex, partidoIndex} = partidoActual;
+
+let p = t.eliminatorias[rondaIndex][partidoIndex];
+
+// 🔥 usar marcador GOD
+let g1 = marcadorTemp.a;
+let g2 = marcadorTemp.b;
+
+// 🚫 no permitir empate en eliminatoria
+if(g1 == g2){
+aviso("No puede haber empate en eliminatoria");
+return;
+}
+
+p.g1 = g1;
+p.g2 = g2;
+
+// 🔥 ranking previo
+localStorage.setItem("rankingPrevio", JSON.stringify(
+[...clubes].sort((a,b)=>b.fifa-a.fifa)
+));
+
+let A = clubes[p.c1];
+let B = clubes[p.c2];
+
+// ⭐ FIFA
+if(g1 > g2){
+A.fifa += 20;
+B.fifa -= 10;
+}else{
+B.fifa += 20;
+A.fifa -= 10;
+}
+
+A.fifa = Math.max(0,A.fifa);
+B.fifa = Math.max(0,B.fifa);
+
+guardar();
+
+cerrarPanel();
+
+recalcularTodo();
+
+render();
+
+aviso("Resultado guardado ⚽🔥");
+}
+
+function borrarResultadoElim(){
+
+let t = torneos[torneoActual];
+
+let {rondaIndex, partidoIndex} = partidoActual;
+
+let p = t.eliminatorias[rondaIndex][partidoIndex];
+
+p.g1 = null;
+p.g2 = null;
+
+p.alargue1 = null;
+p.alargue2 = null;
+
+guardar();
+
+cerrarPanel();
+
+render();
+
+aviso("Resultado eliminado 🗑️");
+}
+
+function cerrarPanel(){
+  const p = document.getElementById("panel");
+  p.style.display = "none";
+  p.style.pointerEvents = "none";
+  p.innerHTML = "";
+}
+
+function mostrarCampeon(id){
+
+// si viene de eliminatoria
+if(id !== undefined){
+let nombre = clubNombre(id);
+
+panel.innerHTML = `
+<div style="
+position:fixed;
+top:0;left:0;
+width:100%;
+height:100%;
+background:black;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+">
+
+<h1>🏆 CAMPEÓN</h1>
+<h2>${nombre}</h2>
+
+<button onclick="cerrarPanel()">Cerrar</button>
+
+</div>
+`;
+return;
+}
+
+// si es liga
+let campeon = obtenerCampeon();
+if(!campeon) return "";
+
+return `
+<div style="
+background:linear-gradient(135deg,#4caf50,#2e7d32);
+padding:15px;
+border-radius:12px;
+text-align:center;
+margin-bottom:10px;
+font-size:18px;
+font-weight:bold;
+">
+🏆 CAMPEÓN: ${campeon}
+</div>
+`;
+}
+
+function verVs(i){
+clubEditando = i;
+pantalla = "vsClub";
+render();
+}
+
+function animarNumero(id, nuevoValor){
+
+let cont = document.getElementById(id);
+if(!cont) return;
+
+// valor actual
+let viejo = cont.innerText;
+
+// contenedor temporal
+let wrapper = document.createElement("div");
+wrapper.style.position = "relative";
+wrapper.style.height = "40px";
+wrapper.style.overflow = "hidden";
+
+// viejo número
+let viejoDiv = document.createElement("div");
+viejoDiv.innerText = viejo;
+viejoDiv.style.position = "absolute";
+viejoDiv.style.width = "100%";
+viejoDiv.style.transition = "0.3s";
+viejoDiv.style.transform = "translateY(0)";
+viejoDiv.style.opacity = "1";
+
+// nuevo número
+let nuevoDiv = document.createElement("div");
+nuevoDiv.innerText = nuevoValor;
+nuevoDiv.style.position = "absolute";
+nuevoDiv.style.width = "100%";
+nuevoDiv.style.transform = "translateY(100%)";
+nuevoDiv.style.opacity = "0";
+nuevoDiv.style.transition = "0.3s";
+
+// limpiar y meter wrapper
+cont.innerHTML = "";
+cont.appendChild(wrapper);
+
+wrapper.appendChild(viejoDiv);
+wrapper.appendChild(nuevoDiv);
+
+// animación
+setTimeout(()=>{
+viejoDiv.style.transform = "translateY(-100%)";
+viejoDiv.style.opacity = "0";
+
+nuevoDiv.style.transform = "translateY(0)";
+nuevoDiv.style.opacity = "1";
+},10);
+
+// dejar solo el nuevo
+setTimeout(()=>{
+cont.innerText = nuevoValor;
+},300);
+}
+
+render();
+
+</script>
+
+</body>
+</html> 
