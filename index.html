@@ -1015,7 +1015,13 @@ render();
 
 function guardarClub(){
 
-let archivo = document.getElementById("imgClub")?.files[0];
+let inputImg = document.getElementById("imgClub");
+
+let archivo = null;
+
+if(inputImg && inputImg.files.length > 0){
+archivo = inputImg.files[0];
+}
 
 if(archivo){
 
@@ -3023,6 +3029,39 @@ object-fit:cover;
 }
 
 let partidoActual = null;
+
+function clubNombreEscudo(id){
+
+let c = clubes.find(c=>c.id==id);
+
+if(!c){
+c = clubes[id];
+}
+
+if(!c) return "Club";
+
+return `
+<div style="
+display:flex;
+align-items:center;
+gap:8px;
+">
+${
+c.escudo
+? `<img src="${c.escudo}" style="
+width:24px;
+height:24px;
+border-radius:50%;
+object-fit:cover;
+">`
+: (c.icono || "⚽")
+}
+
+<span>${c.nombre}</span>
+</div>
+`;
+
+}
 
 function jugarPartidoElim(rondaIndex, partidoIndex){
 
