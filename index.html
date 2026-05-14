@@ -1051,9 +1051,30 @@ return;
 
 
 // CON IMAGEN
+let archivo = input.files[0];
+
 let lector = new FileReader();
 
-lector.onload = function(evento){
+lector.onload = function(e){
+
+let img = new Image();
+
+img.onload = function(){
+
+// canvas compresor
+let canvas = document.createElement("canvas");
+
+let size = 128;
+
+canvas.width = size;
+canvas.height = size;
+
+let ctx = canvas.getContext("2d");
+
+ctx.drawImage(img,0,0,size,size);
+
+// 🔥 comprimida
+let escudoFinal = canvas.toDataURL("image/jpeg",0.5);
 
 clubes.push({
 id: Date.now(),
@@ -1061,8 +1082,7 @@ nombre,
 nivel,
 icono,
 
-// 🖼️ ESCUDO
-escudo: evento.target.result,
+escudo: escudoFinal,
 
 pj:0,
 g:0,
@@ -1082,7 +1102,11 @@ render();
 
 };
 
-lector.readAsDataURL(input.files[0]);
+img.src = e.target.result;
+
+};
+
+lector.readAsDataURL(archivo);
 
 }
 
